@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Cookie Guard",
+    "description": "Shows how many dsh-auth-* login cookies the desktop shell has piled up and warns before the Cookie header passes Node's 16 KiB header limit."
+  }
+}

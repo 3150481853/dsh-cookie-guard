@@ -1,0 +1,50 @@
+{
+  "name": "dsh-cookie-guard",
+  "version": "1.0.0",
+  "description": "DSH 登录 cookie 泄漏自查：首页浮窗实时显示 dsh-auth-* cookie 条数与请求头占用，每天自动留一次快照，接近 16 KiB 上限时变红提醒清理。",
+  "type": "module",
+  "license": "MIT",
+  "author": "3150481853",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "cookie",
+    "health-check"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/3150481853/dsh-cookie-guard.git"
+  },
+  "homepage": "https://github.com/3150481853/dsh-cookie-guard#readme",
+  "bugs": {
+    "url": "https://github.com/3150481853/dsh-cookie-guard/issues"
+  },
+  "files": [
+    "index.js",
+    "probe.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "category": "extension",
+    "displayName": "Cookie 守护",
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Cookie 守护",
+    "description": "在首页浮窗里显示桌面版已累积的 dsh-auth-* 登录 cookie 条数与请求头占用，逼近 Node 的 16 KiB 请求头上限前提醒清理。"
+  }
+}

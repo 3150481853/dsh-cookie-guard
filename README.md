@@ -25,11 +25,15 @@ DSH 桌面版每次启动都会打开一个**随机端口**的本地 Host（`--p
 
 ## 安装
 
+在 DSH 里（推荐）：**设置 → 插件 → 安装**，填 `github:3150481853/dsh-cookie-guard`。
+
+命令行：
+
 ```sh
-dsh plugin add github:3150481853/dsh-cookie-guard
+dsh plugin --profile desktop add github:3150481853/dsh-cookie-guard
 ```
 
-装好后 DSH 首页右下角会出现浮窗（不需要重启）。
+装好后 DSH 窗口右下角会出现浮窗。没出现就刷新一下页面（客户端包是懒加载的）。
 
 ## 界面
 
@@ -68,7 +72,7 @@ Node 本身没有 FFI，DSH 桌面版自带 koffi（`app.asar.unpacked/dsh/node_
 同一套读库逻辑的独立版本，不依赖 DSH，双击就能用：360×520 无边框圆角窗口、环形仪表、可复制清理命令。
 
 - 源码：`desktop/dsh_cookie_ui.py`（Python 3.10 + tkinter + Pillow），`desktop/make_icon.py` 生成图标
-- 已打包的 `DSH Cookie 检查.exe` 见仓库 Releases
+- 现成 exe（8.2 MB，无需 Python）：[DSH-Cookie-Check-1.0.0.exe](https://github.com/3150481853/dsh-cookie-guard/releases/download/v1.0.0/DSH-Cookie-Check-1.0.0.exe)
 
 ## 数据与隐私
 
@@ -85,7 +89,7 @@ Node 本身没有 FFI，DSH 桌面版自带 koffi（`app.asar.unpacked/dsh/node_
 ## 开发
 
 ```sh
-dsh plugin add github:3150481853/dsh-cookie-guard     # 从仓库装
+dsh plugin --profile desktop add github:3150481853/dsh-cookie-guard     # 从仓库装
 ```
 
 改完源码后 Host 会热加载服务端；客户端 `client.js` 的改动也会自动热更新，一般不用重启。

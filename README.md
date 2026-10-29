@@ -69,10 +69,18 @@ Node 本身没有 FFI，DSH 桌面版自带 koffi（`app.asar.unpacked/dsh/node_
 
 ## 桌面版自查工具（`desktop/`）
 
-同一套读库逻辑的独立版本，不依赖 DSH，双击就能用：360×520 无边框圆角窗口、环形仪表、可复制清理命令。
+同一套读库逻辑的独立版本，不依赖 DSH，双击就能用：360×520 无边框圆角窗口、环形仪表。
 
 - 源码：`desktop/dsh_cookie_ui.py`（Python 3.10 + tkinter + Pillow），`desktop/make_icon.py` 生成图标
-- 现成 exe（8.2 MB，无需 Python）：[DSH-Cookie-Check-1.0.0.exe](https://github.com/3150481853/dsh-cookie-guard/releases/download/v1.0.0/DSH-Cookie-Check-1.0.0.exe)
+- 清理脚本：`desktop/dsh-cookie-clean-menu.ps1` —— 带菜单的交互面板，已内嵌进 exe，也可以用管理员 PowerShell 单独跑
+- 现成 exe（8.2 MB，无需 Python）：[DSH-Cookie-Check-1.0.1.exe](https://github.com/3150481853/dsh-cookie-guard/releases/download/v1.0.1/DSH-Cookie-Check-1.0.1.exe)
+
+> **清理要在【管理员】终端里跑。** 点「复制清理命令」会复制一条启动命令，同时弹窗提醒：Win + X → 终端(管理员) → 右键粘贴 → 回车。DSH 只要还有一个进程在跑，Chromium 就独占锁着 `Network\Cookies`，删除必然失败——所以菜单里第 `[1]` 项会先结束 DSH 进程、备份到桌面、再删、再逐个 `Test-Path` 复核。
+
+菜单长这样（`assets/screenshot-clean-menu.png`）：
+
+![清理菜单](assets/screenshot-clean-menu.png)
+
 
 ## 数据与隐私
 

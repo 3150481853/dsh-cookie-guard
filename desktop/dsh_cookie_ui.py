@@ -11,11 +11,14 @@ import ctypes.wintypes as w
 import os
 import queue
 import re
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
 import tkinter.font as tkfont
+from tkinter import messagebox
 
 # ---------------------------------------------------------------- 规格常量
 APP_TITLE = "DSH Cookie 检查"
@@ -195,9 +198,74 @@ def probe():
             "detail": ""}
 
 
-CLEAN_CMD = r'''$p = "$env:APPDATA\@deepseek-ai\dsh-desktop\Network"
-Remove-Item "$p\Cookies","$p\Cookies-journal" -Force -ErrorAction SilentlyContinue
-Write-Host "已清理，重新打开 DSH 并登录一次即可。"'''
+# ---------------------------------------------------------------- 清理菜单
+MENU_NAME = "dsh-cookie-clean-menu.ps1"
+CREATE_NO_WINDOW = 0x08000000
+
+# 兜底：万一找不到 dsh-cookie-clean-menu.ps1，就用这段简单的
+CLEAN_CMD_SIMPLE = r'''$p = "$env:APPDATA\@deepseek-ai\dsh-desktop\Network"
+$n = @(Get-Process | Where-Object { $_.ProcessName -match 'deepseek|dsh' }).Count
+if ($n -gt 0) {
+  "DSH 还有 $n 个进程在跑，Cookies 被独占锁着，现在删不掉。先彻底退出 DSH（含托盘），再运行这条命令。"
+} else {
+  Remove-Item "$p\Cookies","$p\Cookies-journal" -Force -ErrorAction SilentlyContinue
+  if (Test-Path "$p\Cookies") { "没删掉：文件仍被占用。" } else { "已清理，重新打开 DSH 并登录一次即可。" }
+}'''
+
+
+def menu_source_path():
+    """按优先级找菜单脚本：打包目录 → exe 同级 → 源码同级 → 仓库根。"""
+    cands = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        cands.append(meipass)
+    if getattr(sys, "frozen", False):
+        cands.append(os.path.dirname(os.path.abspath(sys.executable)))
+    here = os.path.dirname(os.path.abspath(__file__))
+    cands += [here, os.path.dirname(here), os.path.dirname(os.path.dirname(here))]
+    for folder in cands:
+        path = os.path.join(folder, MENU_NAME)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def read_menu_script():
+    path = menu_source_path()
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8-sig") as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
+def stage_menu_script(text):
+    """写到 %TEMP%，统一 UTF-8 BOM + CRLF —— PowerShell 5.1 没 BOM 会按 ANSI 读，中文全乱。"""
+    target = os.path.join(tempfile.gettempdir(), MENU_NAME)
+    body = text.replace("\r\n", "\n").replace("\n", "\r\n")
+    with open(target, "w", encoding="utf-8-sig", newline="") as fh:
+        fh.write(body)
+    return target
+
+
+def launch_command(menu_path):
+    """复制进剪贴板的命令：在任意 PowerShell 里粘，弹 UAC，用管理员窗口跑菜单。"""
+    return (
+        '# 需要【管理员】权限：Win + X 打开「终端(管理员)」，粘贴回车\n'
+        "Start-Process powershell -Verb RunAs -ArgumentList "
+        "'-NoProfile','-NoExit','-ExecutionPolicy','Bypass','-File',\"%s\"" % menu_path
+    )
+
+
+def spawn_menu(menu_path):
+    cmd = (
+        "Start-Process powershell -Verb RunAs -ArgumentList "
+        "'-NoProfile','-NoExit','-ExecutionPolicy','Bypass','-File',\"%s\"" % menu_path
+    )
+    subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd],
+                     creationflags=CREATE_NO_WINDOW)
 
 
 # ---------------------------------------------------------------- 界面
@@ -364,7 +432,8 @@ class App:
         self.dot.place(x=sc(18), y=sc(302))
         self.dot_dot = self.dot.create_oval(0, 0, sc(10), sc(10),
                                             fill=MUTED, outline="")
-        self.status = tk.Label(self.root, text="正在检测…", bg=BG, fg=TEXT,
+        self._status_text = "正在检测…"
+        self.status = tk.Label(self.root, text=self._status_text, bg=BG, fg=TEXT,
                                font=self.f_body, anchor="w")
         self.status.place(x=sc(34), y=sc(297), width=self.W - sc(52))
 
@@ -496,7 +565,8 @@ class App:
         state = "DSH 正在运行" if r["running"] else "DSH 未运行"
         word = {"ok": "余量充足", "warn": "已过半，建议清理",
                 "danger": "危险，随时会打不开"}[r["level"]]
-        self.status.configure(text="%s · %s" % (state, word), fg=color)
+        self._status_text = "%s · %s" % (state, word)
+        self.status.configure(text=self._status_text, fg=color)
         self._flash()
 
         if r["level"] == "ok":
@@ -508,8 +578,8 @@ class App:
         else:
             self.hint.configure(
                 text="已积累 %d 条，距上限只剩 %d 次启动。\n"
-                     "清理：完全退出 DSH → 删除 Network\\Cookies → 重开登录。"
-                     "会话和插件不受影响。"
+                     "点「复制清理命令」→ 到【管理员】PowerShell 粘贴运行。\n"
+                     "会话、插件、配置都不受影响。"
                      % (r["count"], r["remain"]))
 
     def _minimize(self):
@@ -522,15 +592,48 @@ class App:
         else:
             self.hint.configure(text="目录不存在：%s" % folder)
 
+    def _restore_status(self):
+        level = (self.result or {}).get("level", "ok")
+        self.status.configure(
+            text=self._status_text, fg={"ok": OK_C, "warn": WARN_C,
+                                        "danger": DANGER_C}.get(level, TEXT))
+
     def copy_cmd(self):
+        script = read_menu_script()
+        menu_path = None
+        if script:
+            try:
+                menu_path = stage_menu_script(script)
+                text = launch_command(menu_path)
+            except OSError as err:
+                self.hint.configure(text="写临时脚本失败：%s" % err)
+                return
+        else:
+            text = CLEAN_CMD_SIMPLE
+
         self.root.clipboard_clear()
-        self.root.clipboard_append(CLEAN_CMD)
-        old = self.status.cget("text")
-        self.status.configure(text="清理命令已复制到剪贴板", fg=ACCENT_HOVER)
-        self.root.after(1600, lambda: self.status.configure(
-            text=old, fg={"ok": OK_C, "warn": WARN_C,
-                          "danger": DANGER_C}.get(
-                              (self.result or {}).get("level", "ok"), TEXT)))
+        self.root.clipboard_append(text)
+        self.status.configure(text="已复制 · 请到【管理员】PowerShell 粘贴",
+                              fg=ACCENT_HOVER)
+
+        if menu_path:
+            yes = messagebox.askyesno(
+                "清理菜单已就绪",
+                "清理菜单的命令已复制到剪贴板。\n\n"
+                "请用【管理员】权限运行：\n"
+                "  ① Win + X → 终端(管理员)  (或 Windows PowerShell 管理员)\n"
+                "  ② 右键粘贴 → 回车\n\n"
+                "会弹出一个带菜单的清理面板\n"
+                "（脚本已生成在 %%TEMP%%\\%s）\n\n"
+                "现在就替你打开管理员窗口吗？" % MENU_NAME,
+                parent=self.root)
+            if yes:
+                try:
+                    spawn_menu(menu_path)
+                except OSError as err:
+                    self.hint.configure(text="打不开管理员窗口：%s" % err)
+
+        self.root.after(2800, self._restore_status)
 
 
 def main():

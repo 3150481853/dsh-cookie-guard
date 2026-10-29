@@ -1,6 +1,6 @@
 {
   "name": "dsh-cookie-guard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DSH 登录 cookie 泄漏自查：首页浮窗实时显示 dsh-auth-* cookie 条数与请求头占用，每天自动留一次快照，接近 16 KiB 上限时变红提醒清理。",
   "type": "module",
   "license": "MIT",
